@@ -52,6 +52,93 @@ static void data_text_show();
 static void data_text_hide();
 void format_number(int32_t input, int input_precision, char *output, int output_precision);
 
+// Utility function to print readable logs
+static void print_pretty_log(char *action, uint16_t service_id,  uint16_t attr_id, char *extraInfo){
+    char serviceName[8];
+    char attributeName[16];
+
+    switch(service_id) {
+      case SERVICE_BAT: {
+        strcpy(serviceName, "BATTERY");
+        switch (attr_id) {
+          // Batery attributes
+          case ATTR_BAT_V:
+            strcpy(attributeName, "Voltage");
+          break;
+
+          case ATTR_BAT_CHG:
+            strcpy(attributeName, "Charge");
+          break;
+          
+          default:
+            strcpy(attributeName, "");
+          break;
+        }
+      }
+      break;
+
+      case SERVICE_GPS: {
+        strcpy(serviceName, "GPS");
+        switch (attr_id) {
+          // GPS attributes
+          case ATTR_GPS_LOCATION:
+            strcpy(attributeName, "Location");
+          break;
+
+          case ATTR_GPS_SPEED:
+            strcpy(attributeName, "Speed");
+          break;
+
+          case ATTR_GPS_ALTITUDE:
+            strcpy(attributeName, "Altitude");
+          break;
+
+          case ATTR_GPS_FIX_QUALITY:
+            strcpy(attributeName, "Fix Quality");
+          break;
+
+          case ATTR_GPS_SATELLITES:
+            strcpy(attributeName, "Satellites");
+          break;
+          
+          default:
+            strcpy(attributeName, "");
+          break;
+        }
+      }
+      break;
+
+      case SERVICE_NFC: {
+        strcpy(serviceName, "NFC");
+        switch (attr_id) {
+          // NFC Attributes
+          case ATTR_NFC_GET_UID:
+            strcpy(attributeName, "Get UID");
+          break;
+
+          case ATTR_NFC_READ_NDEF:
+            strcpy(attributeName, "Read NDEF");
+          break;
+
+          case ATTR_NFC_WRITE_NDEF:
+            strcpy(attributeName, "Write NDEF");
+          break;
+
+          case ATTR_NFC_ERASE_NDEF:
+            strcpy(attributeName, "Erase NDEF");
+          break;
+          
+          default:
+            strcpy(attributeName, "");
+          break;
+        }
+      }
+      break;
+    }
+
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "%s %s %s %s", action, serviceName, attributeName, extraInfo);
+
+}
 
 
 static char* smartstrap_result_to_string(SmartstrapResult result) {
@@ -103,7 +190,8 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
 {
     uint16_t service_id = smartstrap_attribute_get_service_id(attr);
     uint16_t attr_id = smartstrap_attribute_get_attribute_id(attr); 
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read(%04x, %04x, %s)", service_id, attr_id, smartstrap_result_to_string(result));
+    print_pretty_log("did_read", service_id, attr_id, smartstrap_result_to_string(result));
+    // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read(%04x, %04x, %s)", service_id, attr_id, smartstrap_result_to_string(result));
 
     read_req_pending = 0;
     app_timer_cancel(p_timer);
@@ -112,7 +200,7 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
     {
         //the returned value is uint16_t,  it's 100 * volt
         memcpy(&vbat, data, 2); 
-        //APP_LOG(APP_LOG_LEVEL_DEBUG, "vbat: %d", vbat);
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_BAT vbat: %d", vbat);
         format_number(vbat, 2, str_vbat, 1);
     } 
     else if (service_id == SERVICE_GPS && attr_id == ATTR_GPS_LOCATION && length >= 8)
@@ -124,6 +212,8 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
         memcpy(&lon, data + 4, 4);
         format_number(lat, 7, str_lat, 4);
         format_number(lon, 7, str_lon, 4);
+
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_GPS ATTR_GPS_LOCATION lat: %s lon: %s", str_lat, str_lon);
     }
     else if (service_id == SERVICE_GPS && attr_id == ATTR_GPS_SPEED && length >= 2)
     {
@@ -131,6 +221,8 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
         //The current speed in meters per second with a precision of 1/100. For example, 1.5 m/s would be specified as 150.
         memcpy(&speed, data, 2);
         format_number(speed, 2, str_speed, 2);
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_GPS ATTR_GPS_SPEED speed: %s", str_speed);
+
     }
     else if (service_id == SERVICE_GPS && attr_id == ATTR_GPS_ALTITUDE && length >= 2)
     {
@@ -138,18 +230,22 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
         //The current altitude in meters with a precision of 1/100. For example, 1.5 m would be specified as 150.
         memcpy(&alt, data, 2);
         format_number(alt, 2, str_alt, 2);
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_GPS ATTR_GPS_ALTITUDE altitude: %s", str_alt);
     }
     else if (service_id == SERVICE_GPS && attr_id == ATTR_GPS_FIX_QUALITY && length >= 1)
     {
         //the returned value is uint8_t
         //http://www.gpsinformation.org/dale/nmea.htm#GGA
         memcpy(&fix, data, 1);
+
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_GPS ATTR_GPS_FIX_QUALITY fix: %d", fix);
     }
     else if (service_id == SERVICE_GPS && attr_id == ATTR_GPS_SATELLITES && length >= 1)
     {
         //the returned value is uint8_t
         //The number of GPS satellites (typically reported via NMEA.
         memcpy(&sat, data, 1);
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_GPS ATTR_GPS_SATELLITES sat. in view: %d", sat);
     }
     else if (service_id == SERVICE_NFC && attr_id == ATTR_NFC_GET_UID)
     {
@@ -162,6 +258,7 @@ static void prv_did_read(SmartstrapAttribute *attr, SmartstrapResult result,
         {
             memset(tagid, 0, sizeof(tagid));
         }
+        // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_read SERVICE_NFC ATTR_NFC_GET_UID tag id: %s", tagid);
     }
     
     app_timer_register(200, prv_send_read_request, NULL); 
@@ -177,7 +274,8 @@ static void read_request_timeout(void *context)
 static void prv_did_write(SmartstrapAttribute *attr, SmartstrapResult result) {
     uint16_t service_id = smartstrap_attribute_get_service_id(attr);
     uint16_t attr_id = smartstrap_attribute_get_attribute_id(attr);
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "did_write(%04x, %04x, %s)", service_id, attr_id, smartstrap_result_to_string(result));
+    print_pretty_log("did_write", service_id, attr_id, smartstrap_result_to_string(result));
+    // APP_LOG(APP_LOG_LEVEL_DEBUG, "did_write(%04x, %04x, %s)", service_id, attr_id, smartstrap_result_to_string(result));
     
     if (service_id == SERVICE_BAT && attr_id == ATTR_BAT_CHG)
     {
@@ -218,7 +316,8 @@ static void prv_send_read_request(void *context) {
             uint16_t attr_id = smartstrap_attribute_get_attribute_id(ep->attr);
             if (ep->available && !smartstrap_service_is_available(service_id))
             {
-                APP_LOG(APP_LOG_LEVEL_DEBUG, "%04x %04x is not available", service_id, attr_id);
+                print_pretty_log("Service not available", service_id, attr_id, "");
+                // APP_LOG(APP_LOG_LEVEL_DEBUG, "%04x %04x is not available", service_id, attr_id);
                 
                 ep->available = false;
             }
@@ -264,7 +363,11 @@ static void prv_send_read_request(void *context) {
 }
 
 static void prv_availablility_status_changed(SmartstrapServiceId service_id, bool is_available) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Availability for 0x%x is %d", service_id, is_available);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "Availability for 0x%x is %d", service_id, is_available);
+  char available[16];
+  strcpy(available, (is_available) ? "available" : "not available");
+  print_pretty_log("Availability for", service_id, 0, available);
+
 
     if (service_id == SMARTSTRAP_RAW_DATA_SERVICE_ID && !is_available)
     {
@@ -287,7 +390,8 @@ static void prv_notified(SmartstrapAttribute *attr) {
     uint16_t service_id = smartstrap_attribute_get_service_id(attr);
     uint16_t attr_id = smartstrap_attribute_get_attribute_id(attr); 
 
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "notified(%04x, %04x)", service_id, attr_id);
+    // APP_LOG(APP_LOG_LEVEL_DEBUG, "notified(%04x, %04x)", service_id, attr_id);
+    print_pretty_log("Notified", service_id, attr_id, "");
     
     if (service_id == SERVICE_NFC && attr_id == ATTR_NFC_GET_UID)
     {

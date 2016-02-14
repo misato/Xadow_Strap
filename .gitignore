@@ -17,3 +17,6 @@
 # Ignore waf lock file
 .lock-waf*
 .DS_Store
+
+# Ignore build directory
+build/
